@@ -367,7 +367,7 @@ footer .der{margin-left:auto}
 /* Las cuentas nuevas las abre o cierra Nuvoor Lab (altas_abiertas en la base).
    Cerradas, los botones de prueba avisan «muy pronto»; abiertas, llevan al alta.
    Además se cuenta la visita: un número al azar por navegador, sin nombre,
-   correo ni IP, para saber cuántas personas entran al día. */
+   correo ni IP, para saber cuántas personas entran al día y cuánto se quedan. */
 (function(){
   var U = "https://vgobhszuziyrrgfysenk.supabase.co",
       K = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnb2Joc3p1eml5cnJnZnlzZW5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3OTA1NzgsImV4cCI6MjEwNTM2NjU3OH0.cb4RR7cMwJHKZVckqlp2KqYPpHG922-NcS4QeE0mo0A",
@@ -386,6 +386,15 @@ footer .der{margin-left:auto}
     var origen = "";
     try{ if(document.referrer){ var h = new URL(document.referrer).hostname.replace(/^www\./, ""); if(h && h !== location.hostname.replace(/^www\./, "")) origen = h; } }catch(e){}
     rpc("cuenta_visita", {p_visitante:id, p_pagina:location.pathname || "/", p_origen:origen || null}).catch(function(){});
+    /* Cuánto tiempo se queda: sólo cuenta con la pestaña al frente y lo
+       manda al salir, al cambiar de pestaña y cada minuto (sql/37). */
+    var pagina = location.pathname || "/", visto = 0, desde = document.visibilityState === "visible" ? Date.now() : 0;
+    var junta = function(){ if(desde){ visto += (Date.now() - desde) / 1000; desde = 0; } };
+    var manda = function(){ junta(); var s = Math.round(visto); if(s >= 1){ visto -= s;
+      rpc("suma_tiempo_visita", {p_visitante:id, p_pagina:pagina, p_segundos:s}).catch(function(){}); } };
+    document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "visible") desde = Date.now(); else manda(); });
+    window.addEventListener("pagehide", manda);
+    setInterval(function(){ if(desde && Date.now() - desde >= 60000){ manda(); desde = Date.now(); } }, 15000);
   }catch(e){}
   rpc("altas_abiertas").then(function(r){ return r.ok ? r.json() : false; }).then(function(v){
     abiertas = v === true;
