@@ -332,7 +332,7 @@ footer .der{margin-left:auto}
 <section class="banda franja cierre"><div class="dentro"><h2>Pruébalo 15 días con tu negocio.</h2><p class="parrafo">Sin tarjeta y sin instalar nada. Si no te sirve, no pagas.</p><div class="acciones"><a class="btn grande" href="#pronto" data-pronto>Nuvoor Imprenta</a><a class="btn grande" href="#pronto" data-pronto>Nuvoor Restaurant</a><a class="btn grande" href="#pronto" data-pronto>Nuvoor Store</a></div></div></section>
 </main>
 <footer><div class="dentro"><a class="marca" href="#inicio" aria-label="Nuvoor, inicio"><img class="marcaN" src="img/marca/n-192.png" alt="" width="30" height="30"><span class="palabra" role="img" aria-label="Nuvoor"></span></a><span>Hecho en Morelia, Michoacán</span><a href="#precios">Precios</a><a href="#preguntas">Preguntas</a><a href="https://app.nuvoor.mx/acceso.html">Entrar</a><span class="der">© 2026 Nuvoor</span></div></footer>
-<dialog class="aviso" id="avisoPronto" aria-labelledby="avisoTit"><p class="ojillo"><svg class="estrella" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1c.6 5.4 4.2 9.6 11 11-6.8 1.4-10.4 5.6-11 11-.6-5.4-4.2-9.6-11-11 6.8-1.4 10.4-5.6 11-11z"/></svg>Muy pronto</p><h3 id="avisoTit">Las cuentas nuevas abren muy pronto.</h3><p class="parrafo">Estamos terminando los últimos detalles. Mientras tanto puedes recorrer la página y ver cómo funciona cada punto de venta. Si ya tienes cuenta, entra con tu correo.</p><div class="acciones"><a class="btn" href="https://app.nuvoor.mx/acceso.html">Entrar a mi cuenta</a><button type="button" class="btn fino" id="avisoCerrar">Seguir viendo</button></div></dialog>
+<dialog class="aviso" id="avisoPronto" aria-labelledby="avisoTit"><p class="ojillo"><svg class="estrella" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1c.6 5.4 4.2 9.6 11 11-6.8 1.4-10.4 5.6-11 11-.6-5.4-4.2-9.6-11-11 6.8-1.4 10.4-5.6 11-11z"/></svg>Muy pronto</p><h3 id="avisoTit">Las cuentas nuevas abren muy pronto.</h3><p class="parrafo">Estamos terminando los últimos detalles. Mientras tanto puedes recorrer la página y ver cómo funciona cada punto de venta. Si ya tienes cuenta, entra con tu correo.</p><div class="acciones"><a class="btn" href="https://app.nuvoor.mx/acceso.html">Entrar a mi cuenta</a><button type="button" class="btn fino" id="avisoCerrar">Seguir viendo</button></div><p class="parrafo" style="margin:16px 0 0;font-size:14px">¿Te invitaron con un código? <a href="https://app.nuvoor.mx/acceso.html?alta=1">Crea tu cuenta aquí</a>.</p></dialog>
 <script>
 (function(){
   /* La barra se marca al bajar. */
@@ -364,11 +364,37 @@ footer .der{margin-left:auto}
   caja.addEventListener("focusin", para);
   arranca();
 })();
-/* Mientras no abran las altas, los botones de prueba avisan en vez de llevar al alta. */
+/* Las cuentas nuevas las abre o cierra Nuvoor Lab (altas_abiertas en la base).
+   Cerradas, los botones de prueba avisan «muy pronto»; abiertas, llevan al alta.
+   Además se cuenta la visita: un número al azar por navegador, sin nombre,
+   correo ni IP, para saber cuántas personas entran al día. */
 (function(){
+  var U = "https://vgobhszuziyrrgfysenk.supabase.co",
+      K = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnb2Joc3p1eml5cnJnZnlzZW5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3OTA1NzgsImV4cCI6MjEwNTM2NjU3OH0.cb4RR7cMwJHKZVckqlp2KqYPpHG922-NcS4QeE0mo0A",
+      ALTA = "https://app.nuvoor.mx/acceso.html?alta=1", abiertas = false;
+  function rpc(nombre, cuerpo){
+    return fetch(U + "/rest/v1/rpc/" + nombre, {method:"POST", keepalive:true,
+      headers:{"apikey":K, "Authorization":"Bearer " + K, "Content-Type":"application/json"},
+      body: JSON.stringify(cuerpo || {})});
+  }
+  try{
+    var id = localStorage.getItem("nuvoor_visitante");
+    if(!id){
+      id = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g, "");
+      localStorage.setItem("nuvoor_visitante", id);
+    }
+    var origen = "";
+    try{ if(document.referrer){ var h = new URL(document.referrer).hostname.replace(/^www\./, ""); if(h && h !== location.hostname.replace(/^www\./, "")) origen = h; } }catch(e){}
+    rpc("cuenta_visita", {p_visitante:id, p_pagina:location.pathname || "/", p_origen:origen || null}).catch(function(){});
+  }catch(e){}
+  rpc("altas_abiertas").then(function(r){ return r.ok ? r.json() : false; }).then(function(v){
+    abiertas = v === true;
+    if(abiertas) [].forEach.call(document.querySelectorAll("[data-pronto]"), function(a){ a.href = ALTA; });
+  }).catch(function(){});
+
   var d = document.getElementById("avisoPronto"); if(!d) return;
   document.addEventListener("click", function(ev){
-    var a = ev.target.closest("[data-pronto]"); if(!a) return;
+    var a = ev.target.closest("[data-pronto]"); if(!a || abiertas) return;
     ev.preventDefault();
     if(d.showModal) d.showModal(); else d.setAttribute("open", "");
   });
